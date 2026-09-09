@@ -1,23 +1,6 @@
 import { useState, useEffect } from "react";
-
-function UserCard({ user,onSelect}) {
-  return (
-    <div onClick={()=> onSelect(user)}>
-      <p>Nom : {user.name}</p>          
-    </div>
-  );
-}
-function SearchBar ({onSearchChange,search,onReset}) {
-    return (
-        <div>
-        <label htmlFor="search">
-            Rechercher :
-            <input id="search" type="text" name="search" value={search} onChange={(e)=>onSearchChange(e.target.value)}/> 
-        </label>
-        <button style={{color:"red"}} onClick={onReset}>Reset</button>
-      </div>   
-    )
-}
+import SearchBar from "./composants/SearchBar"
+import UserCard from "./composants/UserCard"
 
 
 
@@ -28,6 +11,8 @@ function App() {
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [newUserName,setNewUserName] = useState("");
+  const [editName, setEditName] = useState("");
+
 
   useEffect(() => {
     const getUsers = async () => {
@@ -58,9 +43,7 @@ function App() {
     return <p>Chargement...</p>;
   }
 
-  if (error) {
-    return <p>Erreur : {error}</p>;
-  } 
+ 
   
   const onSearchChange = (value) =>{  // on peux facilement mettre cette modification dans le composant, mais vu le state apartient à App, alors on mets la logique dans le App
         setSearch(value)
@@ -75,7 +58,7 @@ function App() {
     setSelectedUser(null); 
   }
 
-  async function handleSubmit(e){
+  async function onPost(e){
     e.preventDefault();
   try{
   
@@ -86,13 +69,14 @@ function App() {
       },
          body: JSON.stringify({name:newUserName})
       });
-      if(!response.ok) throw new Error("erreur dans l'ajout d'un nouvel user")
-        
-        const data = await response.json();        
+        const data = await response.json();    
+        if(!response.ok) throw new Error(data.message)
+            
         setUsers((prev)=>[...prev,data.user])
         setNewUserName("");
+        setError("")
   }catch(err){
-      // a completer ......
+       setError(err.message);
   }
 }
 async function onDelete(id){
@@ -102,13 +86,44 @@ async function onDelete(id){
       method: "DELETE",      
       }
     );
-      if(!response.ok) throw new Error("erreur dans la suppression")
-        
-        const data = await response.json();        
-        setUsers((prev)=>prev.filter(user=>user.id !== data.user.id))
+      
+    const data = await response.json();
+    if(!response.ok) throw new Error(data.message)        
+                
+        setUsers((prev)=>prev.filter(user=>user.id !== data.user.id));
+        if (selectedUser?.id === data.user.id) {
+        setSelectedUser(null);
+  }
+        setError("");
        
   }catch(err){
-      // a completer ......
+       setError(err.message);
+  }
+
+}
+
+async function onUpdate(id){
+  
+  try{
+  
+      const response = await fetch(`http://localhost:3001/api/users/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+         body: JSON.stringify({name:editName})
+      });
+      
+      const data = await response.json();
+      if(!response.ok) throw new Error(data.message)
+          
+        const updatedUsers = users.map((user)=>user.id !== data.user.id ? user : data.user)
+             
+        setUsers(updatedUsers)
+        setEditName("");
+        setError("");
+  }catch(err){
+       setError(err.message);
   }
 
 }
@@ -117,45 +132,185 @@ async function onDelete(id){
   const filteredUsers = users.filter((user) => user.name.toLowerCase().includes(search.toLowerCase())) 
 
   return (
-    <div>
-      <h1>Gestion des utilisateurs</h1>
+  <div
+    style={{
+      maxWidth: "800px",
+      margin: "40px auto",
+      padding: "20px",
+      fontFamily: "Arial, sans-serif",
+    }}
+  >
+    <h1 style={{ textAlign: "center" }}>
+      Gestion des utilisateurs
+    </h1>
 
-      <SearchBar search={search} onSearchChange={onSearchChange} onReset={onReset}/>     
+    {error && (
+      <p
+        style={{
+          color: "red",
+          backgroundColor: "#ffecec",
+          padding: "10px",
+          borderRadius: "5px",
+        }}
+      >
+        Erreur : {error}
+      </p>
+    )}
 
-      {filteredUsers.length > 0 ? filteredUsers.map((user) => (
-        <div key={user.id}>
-        <div style={{display:"flex",flexDirection:"center"}}>
-          <UserCard          
-          user={user}
-          onSelect={onSelect}                    
-        />
-        <button onClick={()=>onDelete(user.id)}>Delete</button>
-        </div>
-        {selectedUser?.id === user.id && (
-          <div>
-              <p style={{ color: "blue" }}>ID : {user.id}</p>
-              <p style={{ color: "blue" }}>Nom : {user.name}</p>
-              <p style={{ color: "blue" }}>Email : {user.email}</p>
-              <button style={{ color: "red", fontWeight: "bold" }} onClick={() =>  setSelectedUser(null)}>Fermer</button>
-          </div>            
-        )}
-        </div>
-        )):<h3>Aucun utilisateur ne correspondond au critère de recherche</h3>
-        }
-      <h1>Nombre des utilisateurs : {filteredUsers.length}</h1>
-
-      <div>
-          <form onSubmit={(e)=>handleSubmit(e)}>
-            <label htmlFor="addUserId"> Add user :         
-                <input id="addUserId" name="addUser" value={newUserName} onChange={(e)=>setNewUserName(e.target.value)} />
-            </label>
-            <button type="submit">Ajouter</button>
-          </form>
-      </div>
-      
-
+    <div style={{ marginBottom: "20px" }}>
+      <SearchBar
+        search={search}
+        onSearchChange={onSearchChange}
+        onReset={onReset}
+      />
     </div>
-  );
+
+    <h3>
+      Nombre d'utilisateurs : {filteredUsers.length}
+    </h3>
+
+    {filteredUsers.length > 0 ? (
+      filteredUsers.map((user) => (
+        <div
+          key={user.id}
+          style={{
+            border: "1px solid #ccc",
+            borderRadius: "8px",
+            padding: "12px",
+            marginBottom: "12px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <UserCard
+              user={user}
+              onSelect={onSelect}
+            />
+
+            <button
+              onClick={() => onDelete(user.id)}
+              style={{
+                padding: "6px 12px",
+                cursor: "pointer",
+              }}
+            >
+              Supprimer
+            </button>
+          </div>
+
+          {selectedUser?.id === user.id && (
+            <div
+              style={{
+                marginTop: "10px",
+                paddingTop: "10px",
+                borderTop: "1px solid #ddd",
+              }}
+            >
+              <p style={{ color: "blue" }}>
+                ID : {user.id}
+              </p>
+
+              <p style={{ color: "blue" }}>
+                Nom : {user.name}
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <label htmlFor={`editName-${user.id}`}>
+                  Modifier le nom :
+                </label>
+
+                <input
+                  id={`editName-${user.id}`}
+                  name="editName"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+
+                <button
+                  onClick={() => onUpdate(user.id)}
+                  style={{
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                  }}
+                >
+                  Modifier
+                </button>
+
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  style={{
+                    cursor: "pointer",
+                  }}
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))
+    ) : (
+      <h3>
+        Aucun utilisateur ne correspond au critère de recherche
+      </h3>
+    )}
+
+    <div
+      style={{
+        marginTop: "30px",
+        paddingTop: "20px",
+        borderTop: "2px solid #ddd",
+      }}
+    >
+      <h2>Ajouter un utilisateur</h2>
+
+      <form
+        onSubmit={onPost}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          flexWrap: "wrap",
+        }}
+      >
+        <label htmlFor="addUserId">
+          Nom :
+        </label>
+
+        <input
+          id="addUserId"
+          name="addUser"
+          value={newUserName}
+          onChange={(e) => setNewUserName(e.target.value)}
+        />
+
+        <button
+          type="submit"
+          style={{
+            padding: "6px 12px",
+            cursor: "pointer",
+          }}
+        >
+          Ajouter
+        </button>
+      </form>
+    </div>
+  </div>
+);
 }
 
 export default App;
+

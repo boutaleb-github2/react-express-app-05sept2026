@@ -4,11 +4,32 @@ let users = [
   { id: 3, name: "Charlie" },
 ];
 
+exports.updateUser = (req,res)=>{
+    const id = Number(req.params.id)
+    const {name} = req.body;
+    if(!name || name.trim() === ""){
+       return res.status(400).json({ // le code 400 signifie bad request
+            message:"name not valid"
+        })
+    }
+    const userForUpdate = users.find((user)=>user.id === id);
+    if(!userForUpdate){
+        return res.status(404).json({message:"user not found"})
+    }
+    const updatedUser = {...userForUpdate,name:name}
+    users = users.map((user)=>user.id===id ? updatedUser : user)
+
+    res.status(200).json({
+        "message" : " user updated",
+        user : updatedUser
+    })
+}
+
 exports.deleteUser = (req,res)=>{
     const id = Number(req.params.id);
     const userForDelete = users.find(user=>user.id===id);
     if(!userForDelete){
-        return res.status(404).json({message:"user For Delete not found"})
+        return res.status(404).json({message:"user not found"})
     }
     const filteredUsers = users.filter(user=>user.id !== id);
     users = filteredUsers;
@@ -19,6 +40,11 @@ exports.deleteUser = (req,res)=>{
 }
 exports.addUser = (req,res) => {
     const {name} = req.body;
+    if(!name || name.trim() === ""){
+       return res.status(400).json({   // le code 400 signifie bad request
+            message:"name not valid"
+        })
+    }
     const newId = Math.max(...users.map(user => user.id)) +1;
     const newUser = {id: newId, name};
     users.push(newUser) // ici on utlise phsh parce que ce n'est comme dans un state
@@ -26,10 +52,6 @@ exports.addUser = (req,res) => {
         "message" : " nouveau utilisateur créé",
         user : newUser
     })
-}
-
-exports.allUsers = (req,res)=>{
-    res.json(users);
 }
 
 exports.getById = (req,res) => {
@@ -42,6 +64,12 @@ exports.getById = (req,res) => {
             res.json(user)
         
     }
+
+exports.allUsers = (req,res)=>{
+    res.json(users);
+}
+
+
 
 // res.status(201).json({
 //   message: "Utilisateur créé avec succès",
